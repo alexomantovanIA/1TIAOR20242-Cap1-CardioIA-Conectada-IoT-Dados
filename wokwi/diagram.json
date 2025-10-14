@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "author": "Equipes CardioIA",
+  "editor": "wokwi",
+  "since": "2024-05-21",
+  "description": "ESP32 com DHT22, sensor de batimentos e chave para simular conectividade.",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": -10,
+      "left": -10,
+      "attrs": { "env": "arduino-esp32@2.0.11" }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht",
+      "top": 190,
+      "left": 190,
+      "attrs": {
+        "temperature": "36.8",
+        "humidity": "58"
+      }
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "wifiSwitch",
+      "top": 60,
+      "left": 210,
+      "attrs": {
+        "label": "Wi-Fi"
+      }
+    },
+    {
+      "type": "wokwi-pulse-sensor",
+      "id": "pulse",
+      "top": 320,
+      "left": 190,
+      "attrs": {
+        "bpm": "82"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "alertLed",
+      "top": 40,
+      "left": 350,
+      "attrs": {
+        "color": "red"
+      }
+    }
+  ],
+  "connections": [
+    [ "esp:3V3", "dht:VCC", "red", [ "v-40", "h140" ] ],
+    [ "esp:GND.1", "dht:GND", "black", [ "v-40", "h140" ] ],
+    [ "esp:15", "dht:SDA", "green", [ "h130" ] ],
+
+    [ "esp:3V3", "wifiSwitch:1", "red", [ "v-10", "h140", "v-40" ] ],
+    [ "esp:13", "wifiSwitch:2", "yellow", [ "h135" ] ],
+    [ "wifiSwitch:3", "esp:GND.2", "black", [ "h-50", "v-100", "h-145" ] ],
+
+    [ "esp:3V3", "pulse:VCC", "red", [ "h150", "v120" ] ],
+    [ "pulse:GND", "esp:GND.3", "black", [ "v-40", "h-120", "v-180" ] ],
+    [ "esp:34", "pulse:OUT", "purple", [ "h160", "v-25" ] ],
+
+    [ "alertLed:C", "esp:GND.4", "black", [ "v-20", "h-180" ] ],
+    [ "alertLed:A", "esp:2", "orange", [ "h-60", "v80" ] ]
+  ],
+  "dependencies": {}
+}

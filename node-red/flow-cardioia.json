@@ -1,0 +1,370 @@
+[
+  {
+    "id": "5aa1f4c9bdf2a5f6",
+    "type": "tab",
+    "label": "CardioIA Monitor",
+    "disabled": false,
+    "info": "Fluxo principal do dashboard CardioIA. Ajuste as credenciais MQTT nos nós apropriados."
+  },
+  {
+    "id": "d96c6e2e4d5070f5",
+    "type": "mqtt in",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Vital Signs (HiveMQ)",
+    "topic": "cardioia/v1/pacientes/+/vitals",
+    "qos": "1",
+    "datatype": "auto",
+    "broker": "df8b682185f46588",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 150,
+    "y": 80,
+    "wires": [
+      [
+        "cb0c2b2af2352f53"
+      ]
+    ]
+  },
+  {
+    "id": "cb0c2b2af2352f53",
+    "type": "json",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Parse JSON",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 350,
+    "y": 80,
+    "wires": [
+      [
+        "6b6f8403f5a4c1ad",
+        "ff73c91c024f96b7",
+        "c60534f5060c0420",
+        "097cb502f8c7b30b"
+      ]
+    ]
+  },
+  {
+    "id": "6b6f8403f5a4c1ad",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Avaliar Alerta",
+    "func": "// Define limites clínicos\nconst HR_LIMIT = 120;\nconst TEMP_LIMIT = 38.0;\n\nconst vitals = msg.payload;\nconst alert = {\n    timestamp: vitals.timestamp,\n    patientId: vitals.patientId,\n    deviceId: vitals.deviceId,\n    triggered: false,\n    reasons: []\n};\n\nif (vitals.heartRate >= HR_LIMIT) {\n    alert.triggered = true;\n    alert.reasons.push(`Taquicardia (${vitals.heartRate} bpm)`);\n}\n\nif (vitals.temperature >= TEMP_LIMIT) {\n    alert.triggered = true;\n    alert.reasons.push(`Febre (${vitals.temperature.toFixed(1)} °C)`);\n}\n\nmsg.alert = alert;\nmsg.payload = vitals;\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 80,
+    "wires": [
+      [
+        "e5c9c9cb357d1d0b",
+        "2be0fc2301abce73",
+        "9e24360d43d81034"
+      ]
+    ]
+  },
+  {
+    "id": "ff73c91c024f96b7",
+    "type": "ui_chart",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Trend - Batimentos",
+    "group": "cec7c844c9d65b4c",
+    "order": 1,
+    "width": "12",
+    "height": "6",
+    "label": "Batimentos por Minuto",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "bezier",
+    "nodata": "Aguardando dados...",
+    "dot": false,
+    "ymin": "40",
+    "ymax": "160",
+    "removeOlder": 1,
+    "removeOlderPoints": "200",
+    "removeOlderUnit": "3600",
+    "cutout": 0,
+    "useOneColor": false,
+    "colors": [
+      "#ff6384",
+      "#ff9f40",
+      "#9966ff",
+      "#4bc0c0",
+      "#36a2eb",
+      "#cc65fe",
+      "#ffce56"
+    ],
+    "useOldStyle": false,
+    "x": 590,
+    "y": 160,
+    "wires": [
+      [],
+      []
+    ]
+  },
+  {
+    "id": "c60534f5060c0420",
+    "type": "ui_gauge",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Temperatura Corporal",
+    "group": "cec7c844c9d65b4c",
+    "order": 2,
+    "width": "6",
+    "height": "5",
+    "gtype": "gage",
+    "title": "Temperatura (°C)",
+    "label": "°C",
+    "format": "{{value}}",
+    "min": "34",
+    "max": "41",
+    "colors": [
+      "#4CAF50",
+      "#FFC107",
+      "#F44336"
+    ],
+    "seg1": "37.5",
+    "seg2": "38",
+    "x": 600,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "097cb502f8c7b30b",
+    "type": "ui_text",
+    "z": "5aa1f4c9bdf2a5f6",
+    "group": "cec7c844c9d65b4c",
+    "order": 3,
+    "width": "6",
+    "height": "2",
+    "name": "Último Registro",
+    "label": "Horário da última amostra",
+    "format": "{{msg.payload.timestamp | date:\"dd/MM/yyyy HH:mm:ss\"}}",
+    "layout": "row-spread",
+    "x": 610,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "e5c9c9cb357d1d0b",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Preparar Alerta",
+    "func": "if (!msg.alert.triggered) {\n    return null;\n}\n\nreturn {\n    topic: msg.alert.patientId || \"cardioia/alert\",\n    payload: {\n        type: \"ALERTA_CARDIACO\",\n        reasons: msg.alert.reasons,\n        patientId: msg.alert.patientId,\n        timestamp: msg.alert.timestamp\n    }\n};",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 830,
+    "y": 60,
+    "wires": [
+      [
+        "50ce7b671b4dae61",
+        "0c1d37df3247793b"
+      ]
+    ]
+  },
+  {
+    "id": "50ce7b671b4dae61",
+    "type": "mqtt out",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Publicar Alerta",
+    "topic": "cardioia/v1/pacientes/paciente01/alerts",
+    "qos": "1",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "df8b682185f46588",
+    "x": 1070,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "0c1d37df3247793b",
+    "type": "ui_led",
+    "z": "5aa1f4c9bdf2a5f6",
+    "order": 4,
+    "group": "cec7c844c9d65b4c",
+    "width": "2",
+    "height": "2",
+    "label": "Alerta",
+    "labelPlacement": "left",
+    "labelAlignment": "center",
+    "colorForValue": [
+      {
+        "color": "#4CAF50",
+        "value": "OK",
+        "valueType": "str"
+      },
+      {
+        "color": "#F44336",
+        "value": "ALERTA",
+        "valueType": "str"
+      }
+    ],
+    "allowColorForValueInMessage": false,
+    "shape": "circle",
+    "showGlow": true,
+    "name": "LED de Estado",
+    "x": 1070,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "9e24360d43d81034",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Atualizar LED",
+    "func": "msg.payload = msg.alert.triggered ? \"ALERTA\" : \"OK\";\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 830,
+    "y": 120,
+    "wires": [
+      [
+        "0c1d37df3247793b"
+      ]
+    ]
+  },
+  {
+    "id": "2be0fc2301abce73",
+    "type": "ui_table",
+    "z": "5aa1f4c9bdf2a5f6",
+    "group": "c3a69f2d0c0e37de",
+    "name": "Log de Eventos",
+    "order": 1,
+    "width": "12",
+    "height": "6",
+    "columns": [
+      {
+        "field": "timestamp",
+        "title": "Horário",
+        "width": "160",
+        "align": "left",
+        "formatter": "datetime",
+        "formatterParams": {
+          "inputFormat": "x",
+          "outputFormat": "dd/MM/yyyy HH:mm:ss"
+        }
+      },
+      {
+        "field": "temperature",
+        "title": "Temp (°C)",
+        "width": "120",
+        "align": "left",
+        "formatter": "plaintext"
+      },
+      {
+        "field": "heartRate",
+        "title": "BPM",
+        "width": "80",
+        "align": "center"
+      },
+      {
+        "field": "movement",
+        "title": "Movimento",
+        "width": "120",
+        "align": "center",
+        "formatter": "tickCross"
+      },
+      {
+        "field": "battery",
+        "title": "Bateria (%)",
+        "width": "120",
+        "align": "center"
+      }
+    ],
+    "outputs": 0,
+    "x": 820,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "097688977d653b8b",
+    "type": "comment",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "📌 Ajustar credenciais MQTT no nó 'Vital Signs (HiveMQ)' e 'Publicar Alerta'",
+    "info": "",
+    "x": 360,
+    "y": 20,
+    "wires": []
+  },
+  {
+    "id": "df8b682185f46588",
+    "type": "mqtt-broker",
+    "name": "HiveMQ Cloud",
+    "broker": "example.s2.eu.hivemq.cloud",
+    "port": "8883",
+    "tls": "46d98f5de582338a",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": true,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "closeTopic": "",
+    "closePayload": "",
+    "closeQos": "0",
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": ""
+  },
+  {
+    "id": "cec7c844c9d65b4c",
+    "type": "ui_group",
+    "name": "Painel em Tempo Real",
+    "tab": "d229ce1421e77f68",
+    "order": 1,
+    "disp": true,
+    "width": "12",
+    "collapse": false
+  },
+  {
+    "id": "c3a69f2d0c0e37de",
+    "type": "ui_group",
+    "name": "Eventos e Logs",
+    "tab": "d229ce1421e77f68",
+    "order": 2,
+    "disp": true,
+    "width": "12",
+    "collapse": false
+  },
+  {
+    "id": "d229ce1421e77f68",
+    "type": "ui_tab",
+    "name": "CardioIA Dashboard",
+    "icon": "dashboard",
+    "disabled": false,
+    "hidden": false
+  },
+  {
+    "id": "46d98f5de582338a",
+    "type": "tls-config",
+    "name": "HiveMQ TLS",
+    "cert": "",
+    "key": "",
+    "ca": "",
+    "certname": "",
+    "keyname": "",
+    "caname": "",
+    "verifyservercert": true,
+    "alpnprotocol": ""
+  }
+]
