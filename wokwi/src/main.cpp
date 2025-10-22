@@ -20,7 +20,7 @@ constexpr uint8_t WIFI_SWITCH_PIN = 13;
 constexpr uint8_t ALERT_LED_PIN = 2;
 
 constexpr unsigned long SAMPLE_INTERVAL_MS = 5000;
-constexpr const char* BUFFER_PATH = "/buffer.jsonl";
+constexpr const char *BUFFER_PATH = "/buffer.jsonl";
 constexpr size_t MAX_RECORDS = 5000;
 
 constexpr float ALERT_TEMP_THRESHOLD = 38.0f;
@@ -30,7 +30,8 @@ DHT dht(DHT_PIN, DHT22);
 WiFiClientSecure secureClient;
 PubSubClient mqttClient(secureClient);
 
-struct VitalSample {
+struct VitalSample
+{
   unsigned long timestamp;
   float temperature;
   float humidity;
@@ -45,25 +46,32 @@ unsigned long lastSampleAt = 0;
 
 // ---- Funções utilitárias ----
 
-bool wifiSwitchOn() {
+bool wifiSwitchOn()
+{
   return digitalRead(WIFI_SWITCH_PIN) == HIGH;
 }
 
-void logAvailableMemory() {
+void logAvailableMemory()
+{
 #if defined(ESP32)
   Serial.printf("DBG: RAM livre ~ %d bytes\n", esp_get_free_heap_size());
 #endif
 }
 
-void mountFileSystem() {
-  if (!SPIFFS.begin(true)) {
+void mountFileSystem()
+{
+  if (!SPIFFS.begin(true))
+  {
     Serial.println("ERR: Falha ao montar SPIFFS");
-  } else {
+  }
+  else
+  {
     Serial.println("INFO: SPIFFS montado com sucesso");
   }
 }
 
-String serializeSample(const VitalSample& sample) {
+String serializeSample(const VitalSample &sample)
+{
   StaticJsonDocument<256> doc;
   doc["deviceId"] = "ESP32-EDGE-001";
   doc["patientId"] = "paciente01";
@@ -79,18 +87,22 @@ String serializeSample(const VitalSample& sample) {
   return payload;
 }
 
-size_t countStoredSamples() {
-  if (!SPIFFS.exists(BUFFER_PATH)) {
+size_t countStoredSamples()
+{
+  if (!SPIFFS.exists(BUFFER_PATH))
+  {
     return 0;
   }
 
   File file = SPIFFS.open(BUFFER_PATH, FILE_READ);
-  if (!file) {
+  if (!file)
+  {
     return 0;
   }
 
   size_t count = 0;
-  while (file.available()) {
+  while (file.available())
+  {
     file.readStringUntil('\n');
     count++;
   }
@@ -98,9 +110,11 @@ size_t countStoredSamples() {
   return count;
 }
 
-void trimBufferIfNeeded() {
+void trimBufferIfNeeded()
+{
   size_t records = countStoredSamples();
-  if (records <= MAX_RECORDS) {
+  if (records <= MAX_RECORDS)
+  {
     return;
   }
 
@@ -109,15 +123,18 @@ void trimBufferIfNeeded() {
 
   File input = SPIFFS.open(BUFFER_PATH, FILE_READ);
   File temp = SPIFFS.open("/tmp.jsonl", FILE_WRITE);
-  if (!input || !temp) {
+  if (!input || !temp)
+  {
     Serial.println("ERR: Não foi possível aparar o buffer");
     return;
   }
 
   size_t skip = records - MAX_RECORDS;
-  while (input.available()) {
+  while (input.available())
+  {
     String line = input.readStringUntil('\n');
-    if (skip > 0) {
+    if (skip > 0)
+    {
       skip--;
       continue;
     }
@@ -130,9 +147,11 @@ void trimBufferIfNeeded() {
   SPIFFS.rename("/tmp.jsonl", BUFFER_PATH);
 }
 
-void appendSampleToBuffer(const String& payload) {
+void appendSampleToBuffer(const String &payload)
+{
   File file = SPIFFS.open(BUFFER_PATH, FILE_APPEND);
-  if (!file) {
+  if (!file)
+  {
     Serial.println("ERR: Não foi possível abrir o buffer SPIFFS");
     return;
   }
@@ -142,20 +161,24 @@ void appendSampleToBuffer(const String& payload) {
                 static_cast<unsigned>(countStoredSamples()));
 }
 
-void updateAlertLed(float temperature, uint16_t heartRate) {
+void updateAlertLed(float temperature, uint16_t heartRate)
+{
   bool alert = (temperature >= ALERT_TEMP_THRESHOLD) || (heartRate >= ALERT_HR_THRESHOLD);
   digitalWrite(ALERT_LED_PIN, alert ? HIGH : LOW);
 }
 
-uint16_t readHeartRate() {
+uint16_t readHeartRate()
+{
   int raw = analogRead(HEART_SENSOR_PIN);
-  if (raw <= 0) {
-    raw = 2048 + random(-200, 200);  // fallback caso o sensor não responda
+  if (raw <= 0)
+  {
+    raw = 2048 + random(-200, 200); // fallback caso o sensor não responda
   }
   return map(raw, 0, 4095, 48, 150);
 }
 
-VitalSample captureSample() {
+VitalSample captureSample()
+{
   VitalSample sample{};
   sample.timestamp = millis();
   sample.temperature = dht.readTemperature();
@@ -165,14 +188,18 @@ VitalSample captureSample() {
 
   previousHeartRate = sample.heartRate;
 
-  if (batteryLevel > 5) {
-    batteryLevel -= random(0, 2);  // taxa de drenagem suave
-  } else {
-    batteryLevel = 100;            // recarga simulada
+  if (batteryLevel > 5)
+  {
+    batteryLevel -= random(0, 2); // taxa de drenagem suave
+  }
+  else
+  {
+    batteryLevel = 100; // recarga simulada
   }
   sample.battery = batteryLevel;
 
-  if (isnan(sample.temperature) || isnan(sample.humidity)) {
+  if (isnan(sample.temperature) || isnan(sample.humidity))
+  {
     Serial.println("WARN: Falha na leitura do DHT22. Reutilizando últimos valores conhecidos.");
     sample.temperature = 36.5f + random(-5, 5) * 0.1f;
     sample.humidity = 55.0f + random(-10, 10) * 0.1f;
@@ -181,32 +208,40 @@ VitalSample captureSample() {
   return sample;
 }
 
-void ensureWifiDisconnected() {
-  if (mqttClient.connected()) {
+void ensureWifiDisconnected()
+{
+  if (mqttClient.connected())
+  {
     mqttClient.disconnect();
   }
-  if (WiFi.isConnected()) {
+  if (WiFi.isConnected())
+  {
     Serial.println("INFO: Desconectando Wi-Fi (simulação offline).");
     WiFi.disconnect(true, true);
   }
 }
 
-bool secretsConfigured() {
+bool secretsConfigured()
+{
   return strcmp(WIFI_SSID, "SEU_WIFI") != 0 && strlen(WIFI_SSID) > 0;
 }
 
-void ensureWifiConnected() {
-  if (!wifiSwitchOn()) {
+void ensureWifiConnected()
+{
+  if (!wifiSwitchOn())
+  {
     ensureWifiDisconnected();
     return;
   }
 
-  if (!secretsConfigured()) {
+  if (!secretsConfigured())
+  {
     Serial.println("WARN: secrets.h não configurado. Operando apenas com logs locais.");
     return;
   }
 
-  if (WiFi.isConnected()) {
+  if (WiFi.isConnected())
+  {
     return;
   }
 
@@ -215,48 +250,63 @@ void ensureWifiConnected() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   unsigned long startAttempt = millis();
-  while (!WiFi.isConnected() && (millis() - startAttempt) < 10000) {
+  while (!WiFi.isConnected() && (millis() - startAttempt) < 10000)
+  {
     delay(200);
     Serial.print(".");
   }
   Serial.println();
 
-  if (WiFi.isConnected()) {
+  if (WiFi.isConnected())
+  {
     Serial.printf("INFO: Wi-Fi conectado. IP: %s\n", WiFi.localIP().toString().c_str());
-  } else {
+  }
+  else
+  {
     Serial.println("ERR: Não foi possível conectar ao Wi-Fi dentro do tempo limite.");
   }
 }
 
-void ensureMqttConnected() {
-  if (!WiFi.isConnected() || !wifiSwitchOn()) {
+void ensureMqttConnected()
+{
+  if (!WiFi.isConnected() || !wifiSwitchOn())
+  {
     return;
   }
 
-  if (mqttClient.connected()) {
+  if (mqttClient.connected())
+  {
     return;
   }
 
-  secureClient.setInsecure();  // Ambiente acadêmico
+  secureClient.setInsecure(); // Ambiente acadêmico
   mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
 
   String clientId = String("CardioIA-") + String(WiFi.macAddress());
   Serial.printf("INFO: Conectando ao broker MQTT (%s:%u)...\n", MQTT_BROKER_HOST, MQTT_BROKER_PORT);
 
-  if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+  if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD))
+  {
     Serial.println("INFO: MQTT conectado com sucesso.");
     mqttClient.subscribe(MQTT_TOPIC_ALERTS);
-  } else {
+  }
+  else
+  {
     Serial.printf("ERR: Falha MQTT rc=%d. Tente novamente mais tarde.\n", mqttClient.state());
   }
 }
 
-bool publishPayload(const String& payload) {
-  if (mqttClient.connected()) {
+bool publishPayload(const String &payload)
+{
+  if (mqttClient.connected())
+  {
     bool ok = mqttClient.publish(MQTT_TOPIC_VITALS, payload.c_str());
-    if (ok) {
+    if (ok)
+    {
       Serial.printf("MQTT: Enviado -> %s\n", payload.c_str());
-    } else {
+    }
+    else
+    {
       Serial.println("ERR: Falha ao publicar no MQTT.");
     }
     return ok;
@@ -267,39 +317,48 @@ bool publishPayload(const String& payload) {
   return true;
 }
 
-void syncBufferToCloud() {
-  if (!SPIFFS.exists(BUFFER_PATH)) {
+void syncBufferToCloud()
+{
+  if (!SPIFFS.exists(BUFFER_PATH))
+  {
     return;
   }
 
   File input = SPIFFS.open(BUFFER_PATH, FILE_READ);
-  if (!input) {
+  if (!input)
+  {
     Serial.println("ERR: Não foi possível abrir o buffer para leitura.");
     return;
   }
 
   File temp = SPIFFS.open("/tmp.jsonl", FILE_WRITE);
-  if (!temp) {
+  if (!temp)
+  {
     Serial.println("ERR: Não foi possível abrir buffer temporário.");
     input.close();
     return;
   }
 
   bool publishFailure = false;
-  while (input.available()) {
+  while (input.available())
+  {
     String line = input.readStringUntil('\n');
     line.trim();
-    if (line.isEmpty()) {
+    if (line.isEmpty())
+    {
       continue;
     }
 
-    if (!publishPayload(line)) {
+    if (!publishPayload(line))
+    {
       publishFailure = true;
       temp.println(line);
-      while (input.available()) {
+      while (input.available())
+      {
         String tail = input.readStringUntil('\n');
         tail.trim();
-        if (!tail.isEmpty()) {
+        if (!tail.isEmpty())
+        {
           temp.println(tail);
         }
       }
@@ -310,11 +369,14 @@ void syncBufferToCloud() {
   input.close();
   temp.close();
 
-  if (publishFailure) {
+  if (publishFailure)
+  {
     SPIFFS.remove(BUFFER_PATH);
     SPIFFS.rename("/tmp.jsonl", BUFFER_PATH);
     Serial.println("WARN: Nem todos os dados foram sincronizados. Restante preservado.");
-  } else {
+  }
+  else
+  {
     SPIFFS.remove(BUFFER_PATH);
     SPIFFS.remove("/tmp.jsonl");
     Serial.println("SYNC: Buffer sincronizado e limpo.");
@@ -323,7 +385,8 @@ void syncBufferToCloud() {
 
 // ---- Arduino lifecycle ----
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(1000);
   Serial.println("\n=== CardioIA Edge Node ===");
@@ -337,19 +400,24 @@ void setup() {
   logAvailableMemory();
 }
 
-void loop() {
+void loop()
+{
   unsigned long now = millis();
 
-  if (wifiSwitchOn()) {
+  if (wifiSwitchOn())
+  {
     ensureWifiConnected();
     ensureMqttConnected();
-  } else {
+  }
+  else
+  {
     ensureWifiDisconnected();
   }
 
   mqttClient.loop();
 
-  if (now - lastSampleAt >= SAMPLE_INTERVAL_MS) {
+  if (now - lastSampleAt >= SAMPLE_INTERVAL_MS)
+  {
     lastSampleAt = now;
     VitalSample sample = captureSample();
     String payload = serializeSample(sample);
@@ -366,7 +434,8 @@ void loop() {
                   sample.battery);
   }
 
-  if (wifiSwitchOn() && (mqttClient.connected() || !secretsConfigured())) {
+  if (wifiSwitchOn() && (mqttClient.connected() || !secretsConfigured()))
+  {
     syncBufferToCloud();
   }
 }

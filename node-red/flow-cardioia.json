@@ -7,6 +7,99 @@
     "info": "Fluxo principal do dashboard CardioIA. Ajuste as credenciais MQTT nos nós apropriados."
   },
   {
+    "id": "3f1a1d4d6a41ae70",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Batimentos → Chart",
+    "func": "const vitals = msg.payload;\nif (!vitals || typeof vitals.heartRate === 'undefined') {\n    return null;\n}\nconst outMsg = {\n    payload: Number(vitals.heartRate),\n    topic: vitals.patientId || 'cardioia/heartRate',\n    timestamp: vitals.timestamp\n};\nreturn outMsg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 830,
+    "y": 140,
+    "wires": [
+      [
+        "ff73c91c024f96b7"
+      ]
+    ]
+  },
+  {
+    "id": "c92a35123af4b2de",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Temperatura → Gauge",
+    "func": "const vitals = msg.payload;\nif (!vitals || typeof vitals.temperature === 'undefined') {\n    return null;\n}\nreturn {\n    payload: Number(parseFloat(vitals.temperature).toFixed(2))\n};",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 840,
+    "y": 200,
+    "wires": [
+      [
+        "c60534f5060c0420"
+      ]
+    ]
+  },
+  {
+    "id": "4b5e42c9b8f0cbe0",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Tabela → Append",
+    "func": "const vitals = msg.payload;\nif (!vitals) {\n    return null;\n}\nreturn {\n    payload: [vitals],\n    ui_control: { add: true }\n};",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 830,
+    "y": 100,
+    "wires": [
+      [
+        "2be0fc2301abce73"
+      ]
+    ]
+  },
+  {
+    "id": "a7c0b3df0d6b7f20",
+    "type": "function",
+    "z": "5aa1f4c9bdf2a5f6",
+    "name": "Influx Formatter",
+    "func": "const v = msg.payload;\nif (!v) {\n    return null;\n}\nconst fields = {\n    heartRate: Number(v.heartRate || 0),\n    temperature: Number(v.temperature || 0),\n    humidity: Number(v.humidity || 0),\n    battery: Number(v.battery || 0)\n};\nconst tags = {\n    patientId: v.patientId || 'desconhecido',\n    deviceId: v.deviceId || 'ESP32',\n    diagnosis: v.diagnosis || 'nao-informado',\n    movement: v.movement ? 'true' : 'false'\n};\nmsg.payload = [{\n    measurement: 'cardioia_vitals',\n    fields,\n    tags,\n    timestamp: (v.timestamp || Date.now()) * 1e6\n}];\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 830,
+    "y": 40,
+    "wires": [
+      [
+        "0f6da3a3d5a5f91d"
+      ]
+    ]
+  },
+  {
+    "id": "0f6da3a3d5a5f91d",
+    "type": "influxdb out",
+    "z": "5aa1f4c9bdf2a5f6",
+    "influxdb": "56cb9d9f897e4c1f",
+    "name": "InfluxDB Cloud",
+    "measurement": "",
+    "precision": "ms",
+    "retentionPolicy": "",
+    "x": 1070,
+    "y": 40,
+    "wires": []
+  },
+  {
     "id": "d96c6e2e4d5070f5",
     "type": "mqtt in",
     "z": "5aa1f4c9bdf2a5f6",
@@ -40,8 +133,6 @@
     "wires": [
       [
         "6b6f8403f5a4c1ad",
-        "ff73c91c024f96b7",
-        "c60534f5060c0420",
         "097cb502f8c7b30b"
       ]
     ]
@@ -63,8 +154,11 @@
     "wires": [
       [
         "e5c9c9cb357d1d0b",
-        "2be0fc2301abce73",
-        "9e24360d43d81034"
+        "4b5e42c9b8f0cbe0",
+        "9e24360d43d81034",
+        "3f1a1d4d6a41ae70",
+        "c92a35123af4b2de",
+        "a7c0b3df0d6b7f20"
       ]
     ]
   },
@@ -307,7 +401,7 @@
     "id": "df8b682185f46588",
     "type": "mqtt-broker",
     "name": "HiveMQ Cloud",
-    "broker": "example.s2.eu.hivemq.cloud",
+    "broker": "3dcf472eb0354f378dd6e2fb084a72c8.s1.eu.hivemq.cloud",
     "port": "8883",
     "tls": "46d98f5de582338a",
     "clientid": "",
