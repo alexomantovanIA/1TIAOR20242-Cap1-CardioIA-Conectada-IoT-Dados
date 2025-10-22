@@ -1,10 +1,8 @@
 #pragma once
 
 /**
- * Renomeie este arquivo para 'secrets.h' e ajuste as credenciais
- * antes de compilar no ESP32 real ou em outro ambiente conectado.
- *
- * Este arquivo não deve ser versionado com dados sensíveis.
+ * Copie este arquivo para 'secrets.h' antes de compilar.
+ * Preencha com as credenciais reais de Wi-Fi e MQTT.
  */
 
 static constexpr const char* WIFI_SSID = "SEU_WIFI";

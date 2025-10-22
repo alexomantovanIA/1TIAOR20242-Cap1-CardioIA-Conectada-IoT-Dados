@@ -1,0 +1,2 @@
+# Dependências Python para utilitários da CardioIA IoT
+paho-mqtt==1.6.1

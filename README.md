@@ -61,27 +61,79 @@ Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardí
 
 ## ⚙️ Como Executar
 
-### Parte 1 – Simulação no Wokwi
-1. Abra o projeto no [Wokwi](https://wokwi.com/) e importe `wokwi/diagram.json`.
-2. Substitua `wokwi/secrets-template.h` por `secrets.h` contendo SSID e senha (se necessário).
-3. Compile `wokwi/src/main.cpp` (Arduino Framework) e inicie a simulação.
-4. Utilize o monitor serial para observar:
-   - **Coleta periódica** dos sensores (DHT22 + sensor de batimentos/movimento).
-   - **Armazenamento em SPIFFS** durante indisponibilidade de rede.
-   - **Sincronização automática** quando a variável de conectividade for ligada.
+### 0. Requisitos
+- **Python 3.9+** (para o script de replay) – `pip install -r requirements.txt`.
+- **Node.js 18+** com **Node-RED 4.x** instalados globalmente (`npm install -g --unsafe-perm node-red`).
+- Conta no **HiveMQ Cloud** (ou broker MQTT equivalente) com TLS habilitado.
+- Conta no **InfluxDB Cloud** (bucket `cardioia-influx`) e no **Grafana Cloud**.
+- Opcional: **PlatformIO** para compilar o firmware localmente.
 
-### Parte 2 – Integração MQTT e Dashboard
-1. Configure credenciais no `secrets.h` (Wi-Fi e MQTT).
-2. Acesse o broker (ex.: HiveMQ Cloud) e crie os tópicos:
-   - `cardioia/v1/pacientes/<id>/vitals`
-   - `cardioia/v1/pacientes/<id>/alerts`
-3. Importe `node-red/flow-cardioia.json` no Node-RED.
-4. Ajuste os nós MQTT com as credenciais fornecidas pelo broker.
-5. Publique/consuma os dados:
-   - Gráfico de batimentos e temperatura em tempo real.
-   - Gauge de temperatura com estado operacional.
-   - Alerta visual quando limites definidos forem ultrapassados.
-6. (Opcional) Importe `grafana/dashboard-cardioia.json` no Grafana para análises históricas.
+> **Importante:** renomeie `wokwi/secrets-template.h` para `wokwi/secrets.h` e preencha com suas credenciais. O arquivo real é ignorado pelo Git para evitar vazamentos.
+
+### 1. Edge – ESP32 (Wokwi ou PlatformIO)
+**Simulação no Wokwi**
+1. Abra [wokwi.com](https://wokwi.com/) → *Import Project* → cole o conteúdo de `wokwi/diagram.json`.
+2. Faça upload de `wokwi/src/main.cpp` e de `wokwi/secrets.h` com SSID/MQTT reais.
+3. Inicie a simulação. Use o monitor serial para acompanhar logs `EDGE`, `SYNC` e `MQTT`.
+4. O slide-switch virtual emula perda de conectividade (pin 13). O LED vermelho (pin 2) acende em alertas (>120 bpm ou >38 °C).
+
+**Execução Física (opcional)**
+1. Crie um novo projeto PlatformIO com board `esp32dev` e copie `wokwi/src/main.cpp` para `src/main.cpp`.
+2. Adicione ao `platformio.ini` as dependências `ArduinoJson`, `PubSubClient`, `DHT sensor library` e `Adafruit Unified Sensor`.
+3. Crie `include/secrets.h` (mesmo formato do template) e rode `platformio run -t upload` para gravar no ESP32.
+4. `platformio device monitor` permite inspecionar o serial em 115200 bps.
+
+### 2. Broker MQTT (HiveMQ Cloud)
+1. Crie um par usuário/senha na aba *Access Management* e permita `PUBLISH_SUBSCRIBE` no tópico `cardioia/v1/pacientes/#`.
+2. No Wokwi/ESP32, configure host, porta 8883 e credenciais.
+3. No Node-RED (passo a seguir), use o mesmo par de credenciais.
+
+### 3. Node-RED – Pipeline Fog
+1. Instale as dependências no workspace local (`node-red/workspace`):
+   ```bash
+   cd node-red/workspace
+   npm install node-red-dashboard node-red-contrib-ui-led node-red-node-ui-table node-red-contrib-influxdb
+   ```
+2. Copie o fluxo de referência:
+   ```bash
+   cp ../flow-cardioia.json flows.json
+   ```
+3. Execute `node-red --userDir $(pwd)`.
+4. No editor (http://127.0.0.1:1880/):
+   - Abra o nó **Vital Signs (HiveMQ)** e configure host, porta `8883`, usuário e senha. Utilize TLS com a configuração `HiveMQ TLS` (CA incluída).
+   - No nó **Publicar Alerta** repita as credenciais.
+   - Abra **InfluxDB Cloud** e informe URL `https://us-east-1-1.aws.cloud2.influxdata.com`, Organization `mccortex`, Bucket `cardioia-influx` e o token gerado no Influx.
+   - Clique em **Deploy**.
+5. O dashboard web fica disponível em `http://127.0.0.1:1880/ui`.
+
+### 4. Persistência – InfluxDB Cloud
+1. Crie o bucket `cardioia-influx` e um API Token com acesso de escrita/leitura.
+2. Garanta que o Node-RED está enviando pontos (menu *Data Explorer* > bucket > `cardioia_vitals`).
+
+### 5. Data Replay / Testes Locais
+Use o utilitário Python para simular três pacientes com diferentes perfis:
+```bash
+python3 scripts/replay_mqtt.py \
+  --broker 3dcf472eb0354f378dd6e2fb084a72c8.s1.eu.hivemq.cloud \
+  --username cardioia-node \
+  --password 'SUA_SENHA' \
+  --loops 3 \
+  --delay 1.0
+```
+- O parâmetro `--topic-template` permite customizar o tópico (por padrão `cardioia/v1/pacientes/{patientId}/vitals`).
+- Para reusar dados gravados, informe `--file caminho/para/dados.jsonl`.
+
+### 6. Visualização – Grafana Cloud
+1. Em *Connections → Data sources*, adicione uma fonte InfluxDB (Flux):
+   - URL: `https://us-east-1-1.aws.cloud2.influxdata.com`
+   - Organization: `mccortex`
+   - Bucket: `cardioia-influx`
+   - Authorization header: `Token <seu_token>`
+   - Salve com o nome `CardioIA Influx`.
+2. Importe `grafana/dashboard-cardioia.json` e selecione `CardioIA Influx` quando solicitado.
+3. Ajuste a variável `patient` no topo do painel para filtrar cada paciente.
+
+Após executar o script de replay (ou o ESP32 real), o dashboard exibirá séries de BPM, temperatura e bateria, além de alertas no Node-RED.
 
 ---
 
@@ -115,6 +167,7 @@ Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardí
 │   ├─ src/
 │   │   └─ main.cpp
 │   └─ secrets-template.h
+├─ requirements.txt
 └─ README.md
 ```
 
