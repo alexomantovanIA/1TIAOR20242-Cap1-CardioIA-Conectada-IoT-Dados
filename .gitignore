@@ -1,0 +1,31 @@
+# Sistema operacional
+.DS_Store
+
+# Configurações locais do Node-RED criadas durante a execução
+.config.*
+node-red/.config.*
+node-red/settings.js
+settings.js
+node-red/package.json
+node-red/package-lock.json
+node-red/lib/
+node-red/node_modules/
+node-red/workspace/
+
+# Dependências npm locais eventualmente instaladas na raiz
+node_modules/
+package-lock.json
+package.json
+
+# Artefatos de IDE
+.vscode/
+
+# Arquivos gerados pelo PlatformIO
+cardioia-edge/.pio/
+cardioia-edge/.vscode/
+cardioia-edge/include/secrets.h
+
+# Segredos e credenciais
+wokwi/secrets.h
+node-red/flow_cred.json
+node-red/workspace/flows_cred.json
