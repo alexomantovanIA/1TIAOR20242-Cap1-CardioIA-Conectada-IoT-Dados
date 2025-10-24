@@ -2,15 +2,30 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include <SPIFFS.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
 
-#if __has_include("../secrets.h")
-#include "../secrets.h"
+#if defined(ARDUINO_WOKWI) || defined(WOKWI)
+#include <SPIFFS.h>
+#define Storage SPIFFS
+constexpr const char *FS_NAME = "SPIFFS";
 #else
+#include <FS.h>
+#include <LittleFS.h>
+#define Storage LittleFS
+constexpr const char *FS_NAME = "LittleFS";
+#endif
+
+#if __has_include("secrets.h")
+#include "secrets.h"
+#elif __has_include("../secrets.h")
+#include "../secrets.h"
+#elif __has_include("secrets-template.h")
+#include "secrets-template.h"
+#elif __has_include("../secrets-template.h")
 #include "../secrets-template.h"
-#warning "Usando secrets-template.h. Crie um arquivo secrets.h com as credenciais reais."
+#else
+#error "Nenhum arquivo de credenciais encontrado. Crie secrets.h ou copie secrets-template.h."
 #endif
 
 // ---- Configurações de hardware ----
@@ -60,13 +75,13 @@ void logAvailableMemory()
 
 void mountFileSystem()
 {
-  if (!SPIFFS.begin(true))
+  if (!Storage.begin(true))
   {
-    Serial.println("ERR: Falha ao montar SPIFFS");
+    Serial.printf("ERR: Falha ao montar %s\n", FS_NAME);
   }
   else
   {
-    Serial.println("INFO: SPIFFS montado com sucesso");
+    Serial.printf("INFO: %s montado com sucesso\n", FS_NAME);
   }
 }
 
@@ -89,12 +104,12 @@ String serializeSample(const VitalSample &sample)
 
 size_t countStoredSamples()
 {
-  if (!SPIFFS.exists(BUFFER_PATH))
+  if (!Storage.exists(BUFFER_PATH))
   {
     return 0;
   }
 
-  File file = SPIFFS.open(BUFFER_PATH, FILE_READ);
+  File file = Storage.open(BUFFER_PATH, FILE_READ);
   if (!file)
   {
     return 0;
@@ -121,8 +136,8 @@ void trimBufferIfNeeded()
   Serial.printf("WARN: Limite de %u registros atingido. Mantendo os %u mais recentes.\n",
                 static_cast<unsigned>(records), static_cast<unsigned>(MAX_RECORDS));
 
-  File input = SPIFFS.open(BUFFER_PATH, FILE_READ);
-  File temp = SPIFFS.open("/tmp.jsonl", FILE_WRITE);
+  File input = Storage.open(BUFFER_PATH, FILE_READ);
+  File temp = Storage.open("/tmp.jsonl", FILE_WRITE);
   if (!input || !temp)
   {
     Serial.println("ERR: Não foi possível aparar o buffer");
@@ -143,16 +158,16 @@ void trimBufferIfNeeded()
   input.close();
   temp.close();
 
-  SPIFFS.remove(BUFFER_PATH);
-  SPIFFS.rename("/tmp.jsonl", BUFFER_PATH);
+  Storage.remove(BUFFER_PATH);
+  Storage.rename("/tmp.jsonl", BUFFER_PATH);
 }
 
 void appendSampleToBuffer(const String &payload)
 {
-  File file = SPIFFS.open(BUFFER_PATH, FILE_APPEND);
+  File file = Storage.open(BUFFER_PATH, FILE_APPEND);
   if (!file)
   {
-    Serial.println("ERR: Não foi possível abrir o buffer SPIFFS");
+    Serial.printf("ERR: Não foi possível abrir o buffer %s\n", FS_NAME);
     return;
   }
   file.println(payload);
@@ -319,19 +334,19 @@ bool publishPayload(const String &payload)
 
 void syncBufferToCloud()
 {
-  if (!SPIFFS.exists(BUFFER_PATH))
+  if (!Storage.exists(BUFFER_PATH))
   {
     return;
   }
 
-  File input = SPIFFS.open(BUFFER_PATH, FILE_READ);
+  File input = Storage.open(BUFFER_PATH, FILE_READ);
   if (!input)
   {
     Serial.println("ERR: Não foi possível abrir o buffer para leitura.");
     return;
   }
 
-  File temp = SPIFFS.open("/tmp.jsonl", FILE_WRITE);
+  File temp = Storage.open("/tmp.jsonl", FILE_WRITE);
   if (!temp)
   {
     Serial.println("ERR: Não foi possível abrir buffer temporário.");
@@ -371,14 +386,14 @@ void syncBufferToCloud()
 
   if (publishFailure)
   {
-    SPIFFS.remove(BUFFER_PATH);
-    SPIFFS.rename("/tmp.jsonl", BUFFER_PATH);
+    Storage.remove(BUFFER_PATH);
+    Storage.rename("/tmp.jsonl", BUFFER_PATH);
     Serial.println("WARN: Nem todos os dados foram sincronizados. Restante preservado.");
   }
   else
   {
-    SPIFFS.remove(BUFFER_PATH);
-    SPIFFS.remove("/tmp.jsonl");
+    Storage.remove(BUFFER_PATH);
+    Storage.remove("/tmp.jsonl");
     Serial.println("SYNC: Buffer sincronizado e limpo.");
   }
 }
@@ -389,7 +404,7 @@ void setup()
 {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\n=== CardioIA Edge Node ===");
+  Serial.printf("\n=== CardioIA Edge Node (%s) ===\n", FS_NAME);
 
   pinMode(WIFI_SWITCH_PIN, INPUT_PULLDOWN);
   pinMode(ALERT_LED_PIN, OUTPUT);
