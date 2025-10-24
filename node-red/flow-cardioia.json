@@ -71,7 +71,7 @@
     "type": "function",
     "z": "5aa1f4c9bdf2a5f6",
     "name": "Influx Formatter",
-    "func": "const v = msg.payload;\nif (!v) {\n    return null;\n}\nconst fields = {\n    heartRate: Number(v.heartRate || 0),\n    temperature: Number(v.temperature || 0),\n    humidity: Number(v.humidity || 0),\n    battery: Number(v.battery || 0)\n};\nconst tags = {\n    patientId: v.patientId || 'desconhecido',\n    deviceId: v.deviceId || 'ESP32',\n    diagnosis: v.diagnosis || 'nao-informado',\n    movement: v.movement ? 'true' : 'false'\n};\nmsg.payload = [{\n    measurement: 'cardioia_vitals',\n    fields,\n    tags,\n    timestamp: (v.timestamp || Date.now()) * 1e6\n}];\nreturn msg;",
+    "func": "const v = msg.payload;\nif (!v) {\n    return null;\n}\nconst measurement = 'cardioia_vitals';\nconst point = {\n    measurement,\n    fields: {\n        heartRate: Number(v.heartRate || 0),\n        temperature: Number(v.temperature || 0),\n        humidity: Number(v.humidity || 0),\n        battery: Number(v.battery || 0)\n    },\n    tags: {\n        patientId: v.patientId || 'desconhecido',\n        deviceId: v.deviceId || 'ESP32',\n        diagnosis: v.diagnosis || 'nao-informado',\n        movement: v.movement ? 'true' : 'false'\n    },\n    timestamp: (v.timestamp || Date.now()) * 1e6\n};\nmsg.measurement = measurement;\nmsg.payload = [point];\nreturn msg;",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
