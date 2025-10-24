@@ -25,7 +25,7 @@
 ---
 
 ## 📌 Descrição do Projeto
-Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardíaco contínuo em um ecossistema IoT completo. O protótipo combina **ESP32**, **sensores biométricos simulados**, **SPIFFS**, **MQTT**, **Node-RED** e integração com **Grafana** para demonstrar o fluxo ponta a ponta: captura dos sinais vitais, resiliência offline no Edge, sincronização com a nuvem e visualização interativa com alertas automáticos.
+Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardíaco contínuo em um ecossistema IoT completo. O protótipo combina **ESP32**, **sensores biométricos simulados**, **LittleFS**, **MQTT**, **Node-RED** e integração com **Grafana** para demonstrar o fluxo ponta a ponta: captura dos sinais vitais, resiliência offline no Edge, sincronização com a nuvem e visualização interativa com alertas automáticos.
 
 > **Governança & Ética (LGPD)**: todos os dados são simulados/anônimos e destinados ao aprendizado acadêmico. Este conteúdo **não** substitui diagnóstico ou acompanhamento médico.
 
@@ -52,7 +52,7 @@ Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardí
 
 ## 🧪 Metodologia
 1. **Mapeamento dos Requisitos Clínicos**: seleção dos sinais vitais relevantes (temperatura, umidade, batimentos e movimento).
-2. **Desenho do Edge Resiliente**: uso de SPIFFS com buffer circular, controle de lotação e sincronização pós-falha.
+2. **Desenho do Edge Resiliente**: uso de LittleFS com buffer circular, controle de lotação e sincronização pós-falha (no Wokwi o firmware ativa automaticamente uma camada compatível com SPIFFS).
 3. **Backbone MQTT Seguro**: conexão TLS com HiveMQ Cloud, tópicos versionados e QoS alinhado ao risco clínico.
 4. **Visualização & Alertas**: dashboards em Node-RED (tempo real) e Grafana (tendências históricas), com thresholds configuráveis.
 5. **Governança de Dados**: segmentation por paciente, logs de auditoria e diretrizes de LGPD aplicadas a um cenário médico.
@@ -94,7 +94,7 @@ Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardí
    cd node-red/workspace
    npm install node-red-dashboard node-red-contrib-ui-led node-red-node-ui-table node-red-contrib-influxdb
    ```
-2. Copie o fluxo de referência:
+2. Copie o fluxo de referência (repita este passo sempre que atualizar o repositório):
    ```bash
    cp ../flow-cardioia.json flows.json
    ```
@@ -103,6 +103,7 @@ Esta etapa do projeto **CardioIA** transforma o conceito de monitoramento cardí
    - Abra o nó **Vital Signs (HiveMQ)** e configure host, porta `8883`, usuário e senha. Utilize TLS com a configuração `HiveMQ TLS` (CA incluída).
    - No nó **Publicar Alerta** repita as credenciais.
    - Abra **InfluxDB Cloud** e informe URL `https://us-east-1-1.aws.cloud2.influxdata.com`, Organization `mccortex`, Bucket `cardioia-influx` e o token gerado no Influx.
+   - (Opcional) em `settings.js` defina `credentialSecret: "sua-chave"` para evitar o aviso de chave temporária e proteger `flows_cred.json`.
    - Clique em **Deploy**.
 5. O dashboard web fica disponível em `http://127.0.0.1:1880/ui`.
 
@@ -130,8 +131,8 @@ python3 scripts/replay_mqtt.py \
    - Bucket: `cardioia-influx`
    - Authorization header: `Token <seu_token>`
    - Salve com o nome `CardioIA Influx`.
-2. Importe `grafana/dashboard-cardioia.json` e selecione `CardioIA Influx` quando solicitado.
-3. Ajuste a variável `patient` no topo do painel para filtrar cada paciente.
+2. Importe `grafana/dashboard-cardioia.json` e selecione `CardioIA Influx` quando solicitado. O arquivo já utiliza consultas Flux compatíveis com InfluxDB Cloud.
+3. Ajuste a variável `patient` no topo do painel para filtrar cada paciente ou escolha `All`.
 
 Após executar o script de replay (ou o ESP32 real), o dashboard exibirá séries de BPM, temperatura e bateria, além de alertas no Node-RED.
 
